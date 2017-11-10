@@ -5,5 +5,4 @@ filebeat.prospectors:
   close_eof: true
 output.syslog:
   address: localhost:9000
-  #  codec.json:
-    # pretty: false
+  network: tcp

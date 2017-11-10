@@ -18,10 +18,11 @@ func init() {
 type syslogOutput struct {
 	beat    beat.Info
 	stats   *outputs.Stats
+	syslog  *syslog.Writer
 	codec   codec.Codec
 	tag     string
 	address string
-	syslog  *syslog.Writer
+	network string
 }
 
 // New instantiates a new file output instance.
@@ -57,6 +58,7 @@ func (out *syslogOutput) init(beat beat.Info, config config) error {
 	out.codec = enc
 	out.address = config.Address
 	out.tag = config.Tag
+	out.network = config.Network
 	return nil
 }
 
@@ -78,8 +80,8 @@ func (out *syslogOutput) Publish(
 	dropped := 0
 	for i := range events {
 		if out.syslog == nil {
-			sysLog, err := syslog.Dial("tcp", out.address,
-				syslog.LOG_WARNING|syslog.LOG_DAEMON, out.tag)
+			sysLog, err := syslog.Dial(out.network, out.address,
+				syslog.LOG_INFO|syslog.LOG_DAEMON, out.tag)
 			if err != nil {
 				logp.Critical("Connection to %s failed with: %v", out.address, err)
 				st.WriteError()
@@ -89,8 +91,7 @@ func (out *syslogOutput) Publish(
 			out.syslog = sysLog
 		}
 
-		event := &events[i]
-
+		var event *publisher.Event = &events[i]
 		serializedEvent, err := out.codec.Encode(out.beat.Beat, &event.Content)
 		if err != nil {
 			if event.Guaranteed() {
