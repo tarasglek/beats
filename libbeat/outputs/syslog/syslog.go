@@ -1,7 +1,6 @@
 package syslog
 
 import (
-	"log"
 	"log/syslog"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -22,6 +21,7 @@ type syslogOutput struct {
 	codec   codec.Codec
 	tag     string
 	address string
+	syslog  *syslog.Writer
 }
 
 // New instantiates a new file output instance.
@@ -75,14 +75,20 @@ func (out *syslogOutput) Publish(
 	st.NewBatch(len(events))
 	logp.Info("syslog Publish %d events", len(events))
 
-	sysLog, err := syslog.Dial("tcp", out.address,
-		syslog.LOG_WARNING|syslog.LOG_DAEMON, out.tag)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	dropped := 0
 	for i := range events {
+		if out.syslog == nil {
+			sysLog, err := syslog.Dial("tcp", out.address,
+				syslog.LOG_WARNING|syslog.LOG_DAEMON, out.tag)
+			if err != nil {
+				logp.Critical("Connection to %s failed with: %v", out.address, err)
+				st.WriteError()
+				dropped++
+				break
+			}
+			out.syslog = sysLog
+		}
+
 		event := &events[i]
 
 		serializedEvent, err := out.codec.Encode(out.beat.Beat, &event.Content)
@@ -97,8 +103,9 @@ func (out *syslogOutput) Publish(
 			continue
 		}
 
-		_, err = sysLog.Write(serializedEvent)
+		_, err = out.syslog.Write(serializedEvent)
 		if err != nil {
+			out.syslog = nil
 			if event.Guaranteed() {
 				logp.Critical("Writing event to %s failed with: %v", out.address, err)
 			} else {
