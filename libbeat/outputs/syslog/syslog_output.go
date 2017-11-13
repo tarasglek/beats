@@ -1,8 +1,6 @@
 package syslog
 
 import (
-	"log/syslog"
-
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
@@ -18,7 +16,7 @@ func init() {
 type syslogOutput struct {
 	beat    beat.Info
 	stats   *outputs.Stats
-	syslog  *syslog.Writer
+	syslog  *Writer
 	codec   codec.Codec
 	tag     string
 	address string
@@ -80,8 +78,8 @@ func (out *syslogOutput) Publish(
 	dropped := 0
 	for i := range events {
 		if out.syslog == nil {
-			sysLog, err := syslog.Dial(out.network, out.address,
-				syslog.LOG_INFO|syslog.LOG_DAEMON, out.tag)
+			sysLog, err := Dial(out.network, out.address,
+				LOG_INFO|LOG_DAEMON, out.tag)
 			if err != nil {
 				logp.Critical("Connection to %s failed with: %v", out.address, err)
 				st.WriteError()
