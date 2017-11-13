@@ -68,22 +68,13 @@ func (out *syslogOutput) Close() error {
 	return nil
 }
 
-func DeepGetValue(mapStr common.MapStr, key string) (string, error) {
-	path := strings.Split(key, ".")
-	for i := 0; i < len(path); i++ {
-		item := mapStr[path[i]]
-		switch v := item.(type) {
-		case string:
-			if i == len(path)-1 {
-				return v, nil
-			}
-		case common.MapStr:
-			mapStr = v
-			continue
-		}
-		break
+func getStringMember(mapStr common.MapStr, keyPath string) (string, error) {
+	maybeStr, _ := mapStr.GetValue(keyPath)
+	myStr, ok := maybeStr.(string)
+	if ok {
+		return myStr, nil
 	}
-	return "", fmt.Errorf("Key not found")
+	return "", fmt.Errorf("Not a member string")
 }
 
 func (out *syslogOutput) Publish(
@@ -98,18 +89,6 @@ func (out *syslogOutput) Publish(
 
 	dropped := 0
 	for i := range events {
-		var event *publisher.Event = &events[i]
-		serializedEvent, err := out.codec.Encode(out.beat.Beat, &event.Content)
-		if err != nil {
-			if event.Guaranteed() {
-				logp.Critical("Failed to serialize the event: %v", err)
-			} else {
-				logp.Warn("Failed to serialize the event: %v", err)
-			}
-
-			dropped++
-			continue
-		}
 		if out.syslog == nil {
 			sysLog, err := Dial(out.network, out.address,
 				LOG_INFO|LOG_DAEMON, out.tag)
@@ -121,12 +100,45 @@ func (out *syslogOutput) Publish(
 			}
 			out.syslog = sysLog
 		}
-		containerName, err := DeepGetValue(event.Content.Fields, "kubernetes.container.name")
-		if err == nil {
-			containerNamespace, _ := DeepGetValue(event.Content.Fields, "kubernetes.namespace")
-			out.syslog.Hostname = containerName + "." + containerNamespace + ".container"
+		var virtualHostname string
+
+		event := &events[i]
+		fields := &event.Content.Fields
+
+		if containerName, err := getStringMember(*fields, "kubernetes.container.name"); err == nil {
+			containerNamespace, _ := getStringMember(*fields, "kubernetes.namespace")
+			virtualHostname = containerName + "." + containerNamespace + ".container"
+		} else if sourceFile, err := getStringMember(*fields, "source"); err == nil {
+			parts := strings.Split(sourceFile, "/")
+			virtualHostname = parts[len(parts)-1]
+			if virtualHostname == "syslog" {
+				if message, err := getStringMember(*fields, "message"); err == nil {
+					virtualHostname = strings.SplitN(message, " ", 4)[4]
+				}
+			}
 		}
 
+		// mangle docker logs to have a .message
+		if hasKey, _ := (*fields).HasKey("message"); !hasKey {
+			fields.Put("message", (*fields)["log"])
+			fields.Put("docker_timestamp", (*fields)["time"])
+			fields.Delete("log")
+			fields.Delete("time")
+		}
+
+		serializedEvent, err := out.codec.Encode(out.beat.Beat, &event.Content)
+		if err != nil {
+			if event.Guaranteed() {
+				logp.Critical("Failed to serialize the event: %v", err)
+			} else {
+				logp.Warn("Failed to serialize the event: %v", err)
+			}
+
+			dropped++
+			continue
+		}
+
+		out.syslog.Hostname = virtualHostname
 		_, err = out.syslog.Write(serializedEvent)
 		if err != nil {
 			out.syslog = nil
