@@ -76,7 +76,7 @@ const (
 type Writer struct {
 	priority Priority
 	tag      string
-	hostname string
+	Hostname string
 	network  string
 	raddr    string
 
@@ -128,7 +128,7 @@ func Dial(network, raddr string, priority Priority, tag string) (*Writer, error)
 	w := &Writer{
 		priority: priority,
 		tag:      tag,
-		hostname: hostname,
+		Hostname: hostname,
 		network:  network,
 		raddr:    raddr,
 	}
@@ -154,16 +154,16 @@ func (w *Writer) connect() (err error) {
 
 	if w.network == "" {
 		w.conn, err = unixSyslog()
-		if w.hostname == "" {
-			w.hostname = "localhost"
+		if w.Hostname == "" {
+			w.Hostname = "localhost"
 		}
 	} else {
 		var c net.Conn
 		c, err = net.Dial(w.network, w.raddr)
 		if err == nil {
 			w.conn = &netConn{conn: c}
-			if w.hostname == "" {
-				w.hostname = c.LocalAddr().String()
+			if w.Hostname == "" {
+				w.Hostname = c.LocalAddr().String()
 			}
 		}
 	}
@@ -270,7 +270,7 @@ func (w *Writer) write(p Priority, msg string) (int, error) {
 		nl = "\n"
 	}
 
-	err := w.conn.writeString(p, w.hostname, w.tag, msg, nl)
+	err := w.conn.writeString(p, w.Hostname, w.tag, msg, nl)
 	if err != nil {
 		return 0, err
 	}

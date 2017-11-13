@@ -1,6 +1,9 @@
 package syslog
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
@@ -65,6 +68,24 @@ func (out *syslogOutput) Close() error {
 	return nil
 }
 
+func DeepGetValue(mapStr common.MapStr, key string) (string, error) {
+	path := strings.Split(key, ".")
+	for i := 0; i < len(path); i++ {
+		item := mapStr[path[i]]
+		switch v := item.(type) {
+		case string:
+			if i == len(path)-1 {
+				return v, nil
+			}
+		case common.MapStr:
+			mapStr = v
+			continue
+		}
+		break
+	}
+	return "", fmt.Errorf("Key not found")
+}
+
 func (out *syslogOutput) Publish(
 	batch publisher.Batch,
 ) error {
@@ -77,18 +98,6 @@ func (out *syslogOutput) Publish(
 
 	dropped := 0
 	for i := range events {
-		if out.syslog == nil {
-			sysLog, err := Dial(out.network, out.address,
-				LOG_INFO|LOG_DAEMON, out.tag)
-			if err != nil {
-				logp.Critical("Connection to %s failed with: %v", out.address, err)
-				st.WriteError()
-				dropped++
-				break
-			}
-			out.syslog = sysLog
-		}
-
 		var event *publisher.Event = &events[i]
 		serializedEvent, err := out.codec.Encode(out.beat.Beat, &event.Content)
 		if err != nil {
@@ -100,6 +109,22 @@ func (out *syslogOutput) Publish(
 
 			dropped++
 			continue
+		}
+		if out.syslog == nil {
+			sysLog, err := Dial(out.network, out.address,
+				LOG_INFO|LOG_DAEMON, out.tag)
+			if err != nil {
+				logp.Critical("Connection to %s failed with: %v", out.address, err)
+				st.WriteError()
+				dropped++
+				break
+			}
+			out.syslog = sysLog
+		}
+		containerName, err := DeepGetValue(event.Content.Fields, "kubernetes.container.name")
+		if err == nil {
+			containerNamespace, _ := DeepGetValue(event.Content.Fields, "kubernetes.namespace")
+			out.syslog.Hostname = containerName + "." + containerNamespace + ".container"
 		}
 
 		_, err = out.syslog.Write(serializedEvent)
