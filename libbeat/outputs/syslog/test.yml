@@ -1,8 +1,8 @@
 filebeat.prospectors:
 - type: stdin
-  # json.keys_under_root: true
+  json.keys_under_root: true
   # json.add_error_key: true
   close_eof: true
 output.syslog:
   address: localhost:9000
-  network: tcp
+  network: udp
