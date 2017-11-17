@@ -112,9 +112,18 @@ func (out *syslogOutput) Publish(
 			virtualHostname = parts[len(parts)-1]
 			if virtualHostname == "syslog" {
 				if message, err := getStringMember(*fields, "message"); err == nil {
-					syslogWords := strings.SplitN(message, " ", 4)
-					if len(syslogWords) == 4 {
-						virtualHostname = syslogWords[3]
+					currentWord := message
+					i := 0
+					for i = 0; i < 3; i++ {
+						spacePos := strings.Index(currentWord, " ")
+						if spacePos == -1 {
+							break
+						}
+						currentWord = currentWord[spacePos+1:]
+					}
+					spacePos := strings.Index(currentWord, " ")
+					if i == 3 && spacePos != -1 {
+						virtualHostname = currentWord[:spacePos]
 					}
 				}
 			}
