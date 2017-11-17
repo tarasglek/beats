@@ -85,7 +85,6 @@ func (out *syslogOutput) Publish(
 	st := out.stats
 	events := batch.Events()
 	st.NewBatch(len(events))
-	logp.Info("syslog Publish %d events", len(events))
 
 	dropped := 0
 	for i := range events {
