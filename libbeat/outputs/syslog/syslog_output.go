@@ -111,19 +111,17 @@ func (out *syslogOutput) Publish(
 			parts := strings.Split(sourceFile, "/")
 			virtualHostname = parts[len(parts)-1]
 			if virtualHostname == "syslog" {
+				// pull out 4th field(hostname) out of syslog message
 				if message, err := getStringMember(*fields, "message"); err == nil {
-					currentWord := message
-					i := 0
-					for i = 0; i < 3; i++ {
-						spacePos := strings.Index(currentWord, " ")
+					for i := 0; i <= 3; i++ {
+						spacePos := strings.Index(message, " ")
 						if spacePos == -1 {
 							break
+						} else if i < 3 {
+							message = message[spacePos+1:]
+						} else {
+							virtualHostname = message[:spacePos]
 						}
-						currentWord = currentWord[spacePos+1:]
-					}
-					spacePos := strings.Index(currentWord, " ")
-					if i == 3 && spacePos != -1 {
-						virtualHostname = currentWord[:spacePos]
 					}
 				}
 			}
