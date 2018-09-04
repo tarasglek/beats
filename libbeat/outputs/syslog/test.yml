@@ -1,0 +1,11 @@
+filebeat.prospectors:
+# - type: stdin
+  # json.keys_under_root: true
+  # json.add_error_key: true
+  # close_eof: true
+  - input_type: log
+    paths:
+      - ./syslog
+output.syslog:
+  address: localhost:9000
+  network: tcp

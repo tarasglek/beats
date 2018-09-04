@@ -15,23 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package includes
+package syslog
 
 import (
-	// import queue types
-	_ "github.com/elastic/beats/libbeat/publisher/queue/memqueue"
-	_ "github.com/elastic/beats/libbeat/publisher/queue/spool"
-
-	// load supported output plugins
-	_ "github.com/elastic/beats/libbeat/outputs/console"
-	_ "github.com/elastic/beats/libbeat/outputs/elasticsearch"
-	_ "github.com/elastic/beats/libbeat/outputs/fileout"
-	_ "github.com/elastic/beats/libbeat/outputs/kafka"
-	_ "github.com/elastic/beats/libbeat/outputs/logstash"
-	_ "github.com/elastic/beats/libbeat/outputs/redis"
-	_ "github.com/elastic/beats/libbeat/outputs/syslog"
-
-	// load support output codec
-	_ "github.com/elastic/beats/libbeat/outputs/codec/format"
-	_ "github.com/elastic/beats/libbeat/outputs/codec/json"
+	"github.com/elastic/beats/libbeat/outputs/codec"
 )
+
+type config struct {
+	Address string       `config:"address"`
+	Tag     string       `config:"tag"`
+	Codec   codec.Config `config:"codec"`
+	Network string       `config:"network"`
+}
+
+var (
+	defaultConfig = config{
+		Address: "localhost:564",
+		Tag:     "",
+		Network: "",
+	}
+)
+
+func (c *config) Validate() error {
+	return nil
+}
