@@ -15,21 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package includes
+// +build !windows,!nacl,!plan9
+
+package syslog
 
 import (
-	// import queue types
-	_ "github.com/elastic/beats/libbeat/outputs/codec/format"
-	_ "github.com/elastic/beats/libbeat/outputs/codec/json"
-	_ "github.com/elastic/beats/libbeat/outputs/console"
-	_ "github.com/elastic/beats/libbeat/outputs/elasticsearch"
-	_ "github.com/elastic/beats/libbeat/outputs/fileout"
-	_ "github.com/elastic/beats/libbeat/outputs/kafka"
-	_ "github.com/elastic/beats/libbeat/outputs/logstash"
-	_ "github.com/elastic/beats/libbeat/outputs/redis"
-	_ "github.com/elastic/beats/libbeat/outputs/syslog"
-
-	// load support output codec
-	_ "github.com/elastic/beats/libbeat/outputs/codec/format"
-	_ "github.com/elastic/beats/libbeat/outputs/codec/json"
+	"errors"
+	"net"
 )
+
+// unixSyslog opens a connection to the syslog daemon running on the
+// local machine using a Unix domain socket.
+
+func unixSyslog() (conn serverConn, err error) {
+	logTypes := []string{"unixgram", "unix"}
+	logPaths := []string{"/dev/log", "/var/run/syslog", "/var/run/log"}
+	for _, network := range logTypes {
+		for _, path := range logPaths {
+			conn, err := net.Dial(network, path)
+			if err != nil {
+				continue
+			} else {
+				return &netConn{conn: conn, local: true}, nil
+			}
+		}
+	}
+	return nil, errors.New("Unix syslog delivery error")
+}
