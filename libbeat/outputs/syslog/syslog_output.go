@@ -121,9 +121,18 @@ func (out *syslogOutput) Publish(
 		event := &events[i]
 		fields := &event.Content.Fields
 
-		if containerName, err := getStringMember(*fields, "kubernetes.container.name"); err == nil {
+		var flowErr error
+		if flowName, err := getStringMember(*fields, "kubernetes.labels.flow"); err == nil {
+			virtualHostname = flowName
+		} else {
+			flowErr = err
+		}
+
+		if stepName, err := getStringMember(*fields, "kubernetes.labels.step"); err == nil && flowErr == nil {
+			virtualHostname = virtualHostname + "-" + stepName
+		} else if podName, err := getStringMember(*fields, "kubernetes.pod.name"); err == nil {
 			containerNamespace, _ := getStringMember(*fields, "kubernetes.namespace")
-			virtualHostname = containerName + "." + containerNamespace + ".container"
+			virtualHostname = containerNamespace + "-" + podName
 		} else if sourceFile, err := getStringMember(*fields, "source"); err == nil {
 			parts := strings.Split(sourceFile, "/")
 			virtualHostname = parts[len(parts)-1]
