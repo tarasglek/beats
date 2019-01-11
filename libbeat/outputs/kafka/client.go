@@ -26,6 +26,7 @@ import (
 
 	"github.com/Shopify/sarama"
 
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/fmtstr"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/outputs"
@@ -38,6 +39,7 @@ type client struct {
 	observer outputs.Observer
 	hosts    []string
 	topic    outil.Selector
+	topicStr string
 	key      *fmtstr.EventFormatString
 	index    string
 	codec    codec.Codec
@@ -68,6 +70,7 @@ func newKafkaClient(
 	index string,
 	key *fmtstr.EventFormatString,
 	topic outil.Selector,
+	topicStr string,
 	writer codec.Codec,
 	cfg *sarama.Config,
 ) (*client, error) {
@@ -75,6 +78,7 @@ func newKafkaClient(
 		observer: observer,
 		hosts:    hosts,
 		topic:    topic,
+		topicStr: topicStr,
 		key:      key,
 		index:    index,
 		codec:    writer,
@@ -146,6 +150,15 @@ func (c *client) String() string {
 	return "kafka(" + strings.Join(c.hosts, ",") + ")"
 }
 
+func getStringMember(mapStr common.MapStr, keyPath string) (string, error) {
+	maybeStr, _ := mapStr.GetValue(keyPath)
+	myStr, ok := maybeStr.(string)
+	if ok {
+		return myStr, nil
+	}
+	return "", fmt.Errorf("Not a member string")
+}
+
 func (c *client) getEventMessage(data *publisher.Event) (*message, error) {
 	event := &data.Content
 	msg := &message{partition: -1, data: *data}
@@ -162,6 +175,16 @@ func (c *client) getEventMessage(data *publisher.Event) (*message, error) {
 			}
 		}
 	}
+
+	if c.topicStr != "" {
+		topic, err := getStringMember(event.Fields, c.topicStr)
+		if err != nil {
+			return nil, err
+		}
+		msg.topic = topic
+		event.Meta["topic"] = topic
+	}
+
 	if msg.topic == "" {
 		topic, err := c.topic.Select(event)
 		if err != nil {

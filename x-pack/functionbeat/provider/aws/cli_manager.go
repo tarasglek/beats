@@ -154,7 +154,7 @@ func (c *CLIManager) template(function installer, name, codeLoc string) *cloudfo
 			Handler:                      handlerName,
 			MemorySize:                   lambdaConfig.MemorySize.Megabytes(),
 			ReservedConcurrentExecutions: lambdaConfig.Concurrency,
-			Timeout:                      int(lambdaConfig.Timeout.Seconds()),
+			Timeout: int(lambdaConfig.Timeout.Seconds()),
 		},
 		DependsOn: []string{"IAMRoleLambdaExecution"},
 	}

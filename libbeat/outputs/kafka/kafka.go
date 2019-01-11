@@ -106,7 +106,11 @@ func makeKafka(
 		return outputs.Fail(err)
 	}
 
-	client, err := newKafkaClient(observer, hosts, beat.Beat, config.Key, topic, codec, libCfg)
+	topicStr, err := cfg.String("topic", -1)
+	if err != nil {
+		return outputs.Fail(err)
+	}
+	client, err := newKafkaClient(observer, hosts, beat.Beat, config.Key, topic, topicStr, codec, libCfg)
 	if err != nil {
 		return outputs.Fail(err)
 	}
