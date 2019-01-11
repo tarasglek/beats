@@ -182,6 +182,9 @@ func (c *client) getEventMessage(data *publisher.Event) (*message, error) {
 			return nil, err
 		}
 		msg.topic = topic
+		if event.Meta == nil {
+			event.Meta = map[string]interface{}{}
+		}
 		event.Meta["topic"] = topic
 	}
 
